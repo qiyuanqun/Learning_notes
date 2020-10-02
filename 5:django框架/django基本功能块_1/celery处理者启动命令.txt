@@ -1,0 +1,2 @@
+进入项目目录（因为celery_tasks包在项目目录下）
+	celery A celery_tasks.tasks worker

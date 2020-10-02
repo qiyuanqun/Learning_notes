@@ -1,0 +1,528 @@
+环境迁移
+    pip freeze > requirements.txt
+    pip install -r requirements.txt  # -r表示一行一行安装
+
+
+第一个flask程序
+    from flask import Flask
+
+    # 创建flask应用对象
+    # __name__表示当前模块名字，flask以这个模块所在目录为总目录，默认该目录下的static为静态目录，templates为模板目录
+    app = Flask(__name__)
+
+    @app.route('/')
+    def index():
+        '''定义的视图函数'''
+        return 'hello'
+
+    if __name__ == '__main__':
+        # 启动flask程序，也可以脚本运行，直接python hello.py
+        app.run()
+
+
+flask应用对象初始化参数说明
+    app = Flask(__name__,
+                static_url_path='python',  # 访问静态资源的url前缀，默认static
+                static_folder='static',  # 静态文件目录，默认static
+                templates_folder)  # 模板文件目录，默认templates
+
+
+读取配置参数的方式
+    # 使用配置文件,通过app对象
+    app.config.from_pyfile('config.cfg')
+
+    # 使用对象配置参数
+    class Config(object):
+        DEBUG = True
+        ITCAST = 'python'
+		
+    app.config.from_object(Config)
+
+    # 直接操作config的字典对象
+    app.config['DEBUG'] = True
+    # 读取
+    app.config.get('ITCAST')
+
+
+app的run使用说明
+    app.run(host='0.0.0.0', port=5000, debug=True)
+
+
+视图函数路由规则设置说明
+    # 查看所有路由信息
+    app.url_map
+    # 设置请求方式,默认只有get
+    @app.route('/', method=['post'])
+
+    同一个路由（rul和请求方式都相同）装饰多个视图函数，访问的是第一个函数
+    url相同但请求方式不同的，根据请求方式决定访问的是哪一个函数
+
+    多个路由装饰同一个视图函数
+    @app.route('/1')
+    @app.route('/2')
+
+
+重定向，反向解析
+    from flask import Flask, redirect, url_for
+    ...
+    # url ='/'  # 写死
+    url =  url_for('index')  # 传入视图函数名字
+    return redirect(url)
+
+
+路由提取参数以及自定义路由转换器
+    用<>提取，自带的转换器有int(接受整数)、float(接受浮点数)、path(同默认(普通字符串，除了斜线)的相似，但也接受斜线)
+    @app.route('/user/<int:id>')
+    def index(id):
+
+    定义自己的转换器
+    from werkzeug.routing import BaseConverter
+    class RegexConverter(BaseConverter):
+        def __init__(self, url_map, regex):
+            # 调用父类的初始化方法
+            super().__init__(url_map)
+            # 将正则表达式的参数保存到对象的属性中，flask会使用这个属性进行路由的正则匹配
+            self.regex = regex
+
+        def to_python(self, value):
+            '''返回视图函数接收的参数'''
+            return value  # value是在路径进行正则匹配时提取的参数，可在该函数中对其进行操作，返回给视图函数接收
+
+        def to_url(self, value):
+            '''url_for反向解析用得到(url_for('index', id=...)),参数id在进行正则匹配前由这个函数处理，再交给正则匹配'''
+            return value
+		
+    将自定义的转换器添加到flask应用中
+    app.url_map.converters['re'] = RegexConverter
+    @app.route("/send/<re(r''):mobile>")
+
+
+request的form/data/args用法
+    request对象中保存一次HTTP请求的一切信息
+    request常用属性
+        data  请求体中，除了表单格式数据
+        form  请求体中，表单格式数据：city=xxx&age=xxx&gender=xxx
+        args  查询字符串，/index?city=xxx&age=xxx&gender=xxx
+        cookies  cookies信息
+        method  请求方法
+        url  url地址
+        files  上传的文件
+
+    from flask import request
+    ...
+    # 通过request.form可以直接提取请求体中表单格式的数据，是一个类字典对象,为了健壮性，建议用get方式获取，以防止键不存在
+    # get方法只能提取同名参数中的第一个，用getlist
+    request.form.get('name')  
+    # args是用来提取url中的参数（查询字符串）
+
+
+上传文件
+    f = reauest.fiels.get('file')
+    if f is None:	
+        return '未上传文件'
+    f.save(path)
+    return '上传成功
+
+
+abort函数的使用
+    立即终止视图函数的执行并返回前端特定的信息
+    from flask import abort, Response
+    # 传递状态码信息（必须标准的）
+    abort(404)
+    # 传递响应体信息，必须是Response对象，这种方式还不如用return，因此不常用
+    abort(Response('错误'))
+
+
+自定义异常处理
+    @app.errorhandler(404)
+    def handle_404_error(err):
+        # 返回值是前端最终看到的结果
+        return err
+
+
+设置响应信息的方法
+    # 使用元组，返回自定义响应信息
+    ...
+    响应体  状态码（可自定义）  响应头
+    return ('index page', 400, [('ITCAST', 'python'),('City', 'shenzheng')])  # 括号可不加，默认  响应头用列表[]或字典{}都可以
+
+    # 使用make_response构造
+    from flask import make_response
+    ...
+    resp = make_response('index page')
+    resp.status = '999'
+    resp.headers['city'] = 'sz'
+    return resp
+		
+	
+返回json数据的方法
+    # json就是字符串
+    data = {
+        'name': 'python',
+        'age': 18
+    }
+    json_str = json.dumps(data)  # 字典转json
+    # json.loads('{...}')  # json转字典
+    return json_str, 200, {'Content-Type': 'application/json'}
+
+    上面的是最原始的方法（了解即可），建议用下面的
+    from flask import jsonify
+    return jsonify(data)
+    # 或return jsonify(city='ss', county='ff')
+
+
+cookie的使用
+    from flask import make_response
+    # 设置cookie，默认有效期是临时的，浏览器关闭就失效
+    resp = make_response('success')
+    # max_age设置有效期，单位：秒
+    resp.set_cookie('itcast', 'python', max_age=3600)
+    return resp
+    
+    # 获取cookie
+    from flask import request
+    c = request.cookie.get('itcast')
+
+    # 删除cookie，后端并不能实现真的删除，浏览器中还存在，而是设置有效期由浏览器决定删除
+    resp = make_response('del cookie')
+    resp.delete_cookie('itcast')
+    return resp
+
+session机制说明
+    会话，存放状态信息，默认是存放在前端中
+
+    在flask中使用session，必须有秘钥配置
+    app.config['SECRET_KEY'] = 'ggjkgjkghkjlh'
+
+    from flask import session
+    ...
+    session['it'] = 'python'
+    return 'xxx'
+
+    获取session
+    s = session.get('it')
+
+
+上下文对象
+    应用上下文
+        current_app:表示当前运行程序文件的程序实例
+        g:处理请求时，用于临时存储的对象，每次请求都会重置这个变量；在视图函数中，一次请求可能会调用其他函数，在函数中需要很多参数时不方便使用形参传递，可在视图函数中将所需变量装到g变量中，在函数中直接调用即可
+
+    from flask import current_app, g
+    ...
+    g.username = 'jjkjkj'
+    ...(可以定义多个）
+    sayhello()
+
+    def sayhello():
+        u = g.username
+        ...
+
+
+请求钩子
+    就是django中的中间件，先不管
+
+
+Flask_Script脚本扩展的使用
+    扩展命令行，运行时可通过python xxx.py runserver -h -p /shell 方式运行
+    pip install Flask-Script
+
+    from flask_script import Manager  # 启动命令的管理类
+    
+    app = Flask(__naem__)
+    manager = Manager(app)
+    ...
+    manager.run()  # 只能通过命令启动
+
+
+模板与自定义过滤器
+    jinja2模板
+    from flask import render_template
+    ...
+    return render_template('xxx.html', 关键字参数或者字典拆包**data)
+    
+    模板变量
+        {{ 键 }}
+    如果键对应的值是列表
+        {{ 键[下标] }}或者{{ 键[num] }}(其中num=0也是传给模板的关键字)
+    如果键对应的值是字典
+        {{ 键['键'] }}
+    模板中支持运算操作
+        {{ mylist[0] + mylist[1] }}
+        {{ 'str1' + 'str2' }}
+
+    支持链式过滤
+    字符串过滤器
+        safe:禁用转义
+        capitalize:首字母大写
+        lower/upper:全部小写/大写
+        title:每个单词首字母大写
+        trim:去首尾空格
+        reverse:字符串反转
+        {{ '   flask ' | trim |upper }}
+    
+    列表过滤器
+        first:取第一个元素
+        last:取最后一个元素
+        length:列表长度
+        sum:列表求和
+        sort:列表排序
+        
+    自定义过滤器
+        第一种方式：
+        def list_step_2(li):
+            '''自定义过滤器'''
+            return li[::2]  # 隔2个元素返回
+
+        # 注册过滤器,第二个参数代表过滤器名字
+        app.add_template_filter(list_step_2, 'li2')
+
+        第二种方式：
+        @app.template_filter('li3')
+        def list_step_3(li):
+            return li[::3]
+
+
+引入表单扩展
+    pip install Flask-WTF
+
+    不使用Flask-WTF，表单需要自己处理（前端定义），然后前端进行校验和后端拿到表单数据后也要进行校验
+    
+    from flask_wtf import FlaskForm
+    from wtforms import StringField, PasswordField
+    from wtforms.validators import DataRequired, EqualTo
+    
+    # csrf验证必须要秘钥
+    app.config['SECRET_KEY'] = 'hjkhkhkhkhj'
+
+    class RegisterForm(FlaskForm):
+        username = StringField(label='用户名', validators=[DataRequired()])  # validators:验证器，告诉前端该字段不能为空
+        password = PasswordField(label='密码', validators=[DataRequired()])
+        password2 = PasswordField(label='确认密码', validators=[DataRequired(),EqualTo('password','两次密码不一致')])
+        submit = SubmitField(label='提交')
+
+    # 视图函数中
+    form = RegisterForm()
+    if form.validate_on_submit():
+        return '提交成功'
+    return render_template('register.html', form=form)
+
+    # 模板中
+    <form method="post">
+        {{ form.csrf_token }}
+        {{ form.username.label }}
+        <p>{{ form.username }}</p>
+        {{ form.password.label }}
+        <p>{{ form.password }}</p>
+        {{ form.password2.label }}
+        <p>{{ form.password2 }}</p>
+        {% for msg in form.password2.errors %}
+            <p>{{ msg }}</p>
+        {% endfor %}
+        {{ form.submit }}
+    </form>
+
+
+模板宏的使用
+    对模板使用，类似Python的函数，代码共用
+    
+    # 定义
+    {% macro input() %}
+        <input type="text" name="username" value="" size="30">  # size表示输入框长度
+    {% endmacro %}
+
+    # 使用
+    {{ input() }}
+
+    # 第二种定义
+    {% macro input2(type, value, size) %}  # 也可以是默认值
+        <input type="{{type}}" value="{{value}}" size="{{size}}">
+    {% endmacro %}
+
+    # 使用
+    {{ input2("password", "", 50) }}
+
+
+宏定义在外部的使用
+    在一个html文件中,先删除所有，在添加上：
+        {% macro input3(type, value, size) %}  # 也可以是默认值
+            <input type="{{type}}" value="{{value}}" size="{{size}}">
+        {% endmacro %}
+
+    在需要的模板中：
+        {% import "xxx.html" as m_input %}
+        {{ m_input.input3(...) }}
+
+
+模板继承
+    extends
+    {% block 名 %}
+    {% endblock 名 %}
+
+
+flask中的特殊变量和方法
+    可以直接在模板文件中使用
+
+    config对象
+    request对象
+
+
+模板的闪现使用
+    get_flashed_messages方法
+    
+    # 定义全局变量
+    flag = True
+    
+    ...
+    if flag:
+        flash()  # 可添加多条闪现信息,但不是将它们传给模板，而是自动存于session，所以要用秘钥
+        global flag = False    
+
+    {% for msg in get_flashed_messages %}
+        {{ msg }}
+    {% endfor %}
+
+
+使用sqlalchemy的配置
+    pip install flask-sqlalchemy
+    pip install pymysql
+
+    需要pymysql.install_as_mysqldb()
+
+    # 配置
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://用户:密码@127.0.0.1:3306/数据库'
+    # app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True  # 这个不建议用，以后会废除
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True  # 自动跟踪数据库
+
+    from flask_sqlalchemy import SQLAlchemy
+    db = SQLAlchemy(app)
+
+
+常用sqlalchemy字段类型
+    Integer 普通整数
+    SmallInteger
+    BigInteger
+    Float
+    String
+    Text
+    Boolean
+    Date
+    Time
+
+
+常用sqlalchemy字段选项（约束）
+    primary_key  为True代表主键
+    unique  为True代表不允许出现重复值
+    index  为True为该字段建立索引
+    nullable  为True代表允许为空
+    default
+
+
+创建模型类
+    两张表：角色 用户
+    一个角色对应多个用户，一个用户只能对应一个角色
+    所以在用户表中建立外键字段
+
+    表名规范：ihome --> ih_user  数据库名缩写_表名
+              tbl_user  tbl_表名
+
+    class User(db.Model):
+        __tablename__ = 'tbl_users'
+
+        id = db.Column(db.Integer, primary_key=True)
+        name = db.Column(db.String(64), unique=True)
+        email = db.Column(db.String(128), unique=True)
+        password = db.Column(db.String(128))
+
+        role_id =db.Column(db.Integer, db.ForeignKey('tbl_roles.id'))  # 传入表名.待关联字段
+
+        def __repr__(self):
+            '''自定义对象直观显示'''
+            return '...'
+
+    class Role(db.Model):
+        __tablename__ = 'tbl_roles'
+ 
+        id = db.Column(db.Integer, primary_key=True)
+        name = db.Column(db.String(64), unique=True)
+        
+        users = db.relationship('User', backref='role')  # 传入模型名
+
+
+创建数据库表
+    if __name__ == '__main__':
+        # 删除表  保证每次运行都有一个干净数据库
+        db.drop_all()
+        # 创建表
+        db.create_all()
+        app.run()
+
+
+常见的操作语句
+    db.session.add(obj) 添加对象
+    db.session.add_all([obj1,obj2,..]) 添加多个对象
+    db.session.delete(obj) 删除对象
+    db.session.commit() 提交会话
+    db.session.rollback() 回滚
+    db.session.remove() 移除会话
+
+
+操作数据
+    1、增
+    role = Role(name='admin')  # id是主键，自动的
+    db.session.add(role)  # 添加实例对象
+    db.session.commit()  # 提交数据
+
+    user = User(name='luo',role_id=role.id)  # 上面实例对象role的id
+    db.session.add(user)
+    db.session.commit()
+
+    2、改
+    user.name = 'hjkjkjk'
+    db.session.commit()  # 这里user已经添加add过了，如果是对通过查询得到的对象，先添加再提交
+
+    也可以在查询的同时进行修改
+    User.query.filter_by(name='xxx').update({'name':'xxx','email':'xxx'})
+    db.session.commit()
+
+    3、删
+    db.session.delete(user)
+    db.session.commit()
+
+    4、查
+    直接通过表user查询用户所属角色名
+    1>先查询出role_id
+    2>根据role_id去另一张表role查询
+    仅仅是为了方便查询，需要一些属性便利的去查询数据，但是这些属性不能出现在数据库的字段中
+    
+    role.users  # 与role这个实例对象相关的用户对象集合
+    user.role  # 与user这个实例对象相关的一个角色对象
+    user.role.name
+  
+
+SQLAlchemy查询过滤器
+    用来过滤数据,返回查询的结果集
+    
+
+SQLAlchemy查询执行器
+    用来执行结果集,得到具体数据  
+
+
+SQLAlchemy查询过滤器、执行器
+    User.query.all()
+    User.query.count()
+    User.query.first()
+    User.query.get(4)  参数为主键，直接传入值
+    
+    User.query.filter_by(id=4).first()  # 属性=，不建议使用
+    User.query.filter(User.id==4).first()  # 对象.属性==,功能更强大可实现更多的一些查询，支持比较运算符
+    User.query.filter(User.name.endswith('g').first()
+
+    逻辑非
+        User.query.filter(User.name!='wang').first()
+    逻辑与/或/非
+        from sqlalchemy import and_/or_/not_
+        User.query.filter(and_(User.name!='wang', User.email.endswith('...'))).first()
+
+
+

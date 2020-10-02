@@ -1,0 +1,114 @@
+安装与配置
+    sudo apt install git
+
+
+git修改用户信息
+    编辑家目录下.gitconfig文件或
+        git config --global --replace-all user.name "要修改的用户名"
+        git config --global --replace-all user.email"要修改的邮箱"
+        git config --global --replace-all user.password "要修改的密码"
+
+    查看修改完后的用户名：
+        git config user.name 
+
+    查看修改完后的邮箱：
+        git config user.email
+
+    查看修改完后的密码：
+        git config user.password
+
+    
+在指定目录下新建一个版本库
+    在目录下执行命令：git init
+    执行命令:ls -a  可以看到.git文件夹
+
+
+版本关系可以看做一棵树，用指针指向
+
+
+版本创建与回退
+    创建：
+        git add 文件/.
+        git commit -m '说明信息'
+
+    查看版本信息：
+        git log ，但是这个只能看到当前版本以及之前版本的记录，看不到之后的记录(已经回退），这时用git reflog
+
+
+    查看操作记录(方便看版本号)：
+        git reflog
+
+    之前哪一个版本：
+        HEAD^  回到上一个版本
+        HEAD~1
+        HEAD~  100
+
+    回退：
+        到之前某一个版本：git reset --hard HEAD^
+        到指定版本：git reset --hard 版本号
+
+
+工作区和暂存区
+    工作区：文件目录
+    暂存区：在.git版本库中
+
+    git add 就是添加修改到暂存区
+    git commit 就是创建版本记录
+
+    查看工作区状态：
+        git status
+
+
+git创建切换分支
+    查看分支：
+        git branch
+
+    创建：
+        git branch 分支名字
+
+    创建并切换：
+        git checkout -b 分支名字
+
+    切换分支：
+        git checkout 分支名字
+
+    将其他分支合并到当前分支（快速合并--不建议使用：指针移动）：
+        git merge 分支名字
+
+    git合并默认使用快速合并，但很多时候不能使用快速合并
+
+    删除分支:
+        git branch -d 分支名字
+
+
+git解决冲突：
+    如两个分支都对同一个文件进行修改，快速合并时会冲突，这时需要手动解决，再添加和提交
+
+
+git分支管理
+    当在分支1上新建一个文件2添加并提交，在分支2上修改原有文件1添加并提交，这是不会有冲突（是不同操作），但是不能快速合并
+    会合并之后做一个新的提交，会弹出一个窗，要求输入提示信息，ctrl+s  Y
+
+    禁用快速合并，合并时做一个新的提交
+        git merge --no-ff -m '说明信息' 分支名字
+
+bug分支
+    单独用一个分支来修复bug，合并后删除bug分支
+
+    没写完不能提交，但是要去做其他任务，可以用git stash将工作现场保存起来，可以用git stash list查看，git stash pop恢复现场
+
+
+github创建仓库
+    
+    登录进去，点击new repository创建一个新的仓库
+
+
+添加ssh账户
+    编辑家目录下vim .gitconfig
+    
+    执行命令 ssh-keygen -t rsa -C '用户邮箱'
+    然后到家目录下.ssh文件夹下，有两个重要文件 id_rsa 和 id_rsa.pub(公钥，将其内容复制到github）
+
+
+先从github上克隆项目到本地，在创建一个分支操作，最后推送
+    git push origin 分支名字
